@@ -21,3 +21,5 @@
 | 17 | Modules and interoperability (imports, packages, foreign-function interfaces, and external libraries) | undone |
 | 18 | Diagnostics and tooling (compiler errors, warnings, formatting, testing, debugging, and documentation conventions) | undone |
 | 19 | Implementation roadmap (lexer, parser, AST, type checker, interpreter/compiler, standard library, and test suite) | undone |
+| 20 | Transfer memory: linear consumption, `!i`, `copy`; behaviour for classes and for calls whose result is discarded | partially defined |
+| 21 | Flow / identity memory: shared mutable state evolving across applications (mappers, continuous computation, graphs, tasks); relation to `!i` and to read-only access | undone |
