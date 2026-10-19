@@ -1,0 +1,95 @@
+(< A Micrograd-inspired scaffold: Value nodes, instance methods for the
+   forward operations and the local backward rules, and a class method
+   for construction. The tuple child traversal is still an open question,
+   so parents are recorded but never walked: the topological order is
+   written by hand for a fixed graph. >)
+
+class Value:
+    #from(* data: real, children: tuple = (), op: string = "", label: string = "")
+    .grad: real = 0.0
+    .backward: none = lambda () = none
+    #format = "Value({.data}, grad={.grad}, label={.label})"
+
+    (< Instance methods: the receiver's members are reached with a leading
+       dot, the same marker used in the class body; `self` names the
+       receiver only when it is passed as a value. Each call builds a new
+       node carrying both operands as children. >)
+    .add(other: Value) -> Value:
+        => Value(.data + other.data, (self, other), "+", "add")
+
+    .mul(other: Value) -> Value:
+        => Value(.data * other.data, (self, other), "*", "mul")
+
+    .negate() -> Value:
+        => .mul(Value.constant(-1.0))
+
+    .subtract(other: Value) -> Value:
+        => .add(other.negate())
+
+    (< Local backward rules. `.grad` must already hold the gradient
+       flowing into the receiver; each rule accumulates the chain-rule
+       contribution on the parents. >)
+    .backward_add(left: Value, right: Value) -> none:
+        left.grad = left.grad + .grad
+        right.grad = right.grad + .grad
+        => none
+
+    .backward_mul(left: Value, right: Value) -> none:
+        left.grad = left.grad + .grad * right.data
+        right.grad = right.grad + .grad * left.data
+        => none
+
+    (< Class method: cls binds to Value and acts as a construction
+       helper, so constant nodes are not spelled out by hand. >)
+    cls.constant(value: real) -> Value:
+        => Value(value, (), "const", "constant")
+
+(< y = w * x + b, the classic micrograd starting graph.
+   Backward is seeded with 1.0 on the output and then runs in reverse
+   topological order: the add node first, then the mul node. >)
+x: Value = Value(-4.0, (), "input", "x")
+w: Value = Value(2.0, (), "input", "w")
+b: Value = Value(10.0, (), "const", "b")
+
+product: Value = w.mul(x)
+output: Value = product.add(b)
+
+output.grad = 1.0
+output.backward_add(product, b)
+product.backward_mul(w, x)
+
+print("y = {output}")                     (< Expected output: Value(2.0, grad=1.0, label=add) >)
+print("dl/dw = {w.grad}")                 (< Expected output: -4.0 >)
+print("dl/dx = {x.grad}")                 (< Expected output: 2.0 >)
+print("dl/db = {b.grad}")                 (< Expected output: 1.0 >)
+print("dl/d(product) = {product.grad}")   (< Expected output: 1.0 >)
+
+(< Finite-difference sanity check on w, mirroring micrograd's check:
+   the analytic gradient must match the numerical one. >)
+epsilon: real = 0.00001
+raised: real = ((w.data + epsilon) * x.data) + b.data
+lowered: real = ((w.data - epsilon) * x.data) + b.data
+numerical: real = (raised - lowered) / (2.0 * epsilon)
+print("numerical dl/dw = {numerical}")    (< Expected output: -4.0 >)
+
+(< The .backward field stores a zero-parameter closure. What such a
+   closure may capture from an enclosing scope is still an open
+   design question, so this one captures nothing. >)
+output.backward = lambda () = print("backward() called")
+output.backward()                         (< Expected output: backward() called >)
+
+(< Composed expressions reuse the same two rules on a fresh pass:
+   subtract(x, w) = x + (w * -1), so d(x-w)/dx = 1 and d(x-w)/dw = -1. >)
+x.grad = 0.0
+w.grad = 0.0
+
+difference: Value = x.subtract(w)
+neg_term: Value = w.negate()
+
+difference.grad = 1.0
+difference.backward_add(x, neg_term)
+neg_term.backward_mul(w, Value.constant(-1.0))
+
+print("x - w = {difference.data}")        (< Expected output: -6.0 >)
+print("d(x-w)/dx = {x.grad}")             (< Expected output: 1.0 >)
+print("d(x-w)/dw = {w.grad}")             (< Expected output: -1.0 >)

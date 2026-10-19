@@ -41,6 +41,10 @@ display(text: string) -> none:
 `=>` is a return construct, not a lambda syntax. A function return type is
 checked against the type of every returned expression.
 
+There is no implicit return. Every path through a body must return
+explicitly, so a function or method with return type `-> none` ends with
+`=> none` rather than falling off its last statement.
+
 An `arr` parameter grants the function mutable access to the passed array
 storage. Mutations therefore affect the caller's array; no `mut` marker is
 required in the first version.
@@ -57,8 +61,8 @@ precise model for assignment, aliasing, copies, and views remains open.
 `::` is reserved for a future `process` construct and has no meaning in the
 current language.
 
-**To decide:** recursion, function overloading, named-function scope, closure
-capture, and whether all control-flow paths must return a value.
+**To decide:** recursion, function overloading, named-function scope, and
+closure capture.
 
 ## Classes
 
@@ -70,7 +74,41 @@ class Value:
     .grad: real = 0.0 (< All variables preceded of a dot belong to the instance. >)
     .backward: none = lambda () = none
     #format = "Value({.data})" (<Formatting function for `Value` instance.>)
+
+    (< An instance method: the leading dot marks it as belonging to each
+       instance. Inside its body, the receiver's members keep the same dot
+       marker; `self` names the receiver only when it is passed as a
+       value. >)
+    .add(other: Value) -> Value:
+        => Value(.data + other.data, (self, other), "+", "add")
+
+    (< A class method: the leading `cls.` marks it as belonging to the
+       class itself. Class members are reached through `cls.` the same
+       way instance members are reached through the dot. >)
+    cls.constant(value: real) -> Value:
+        => Value(value, (), "const", "constant")
+
+weight: Value = Value(2.0, (), "input", "w")
+input: Value = Value(-4.0, (), "input", "x")
+product: Value = weight.mul(input)    (< instance member access >)
+unit: Value = Value.constant(1.0)     (< class member access >)
 ```
+
+A member preceded by a dot is an instance member: an attribute or a
+method. An instance method is called on a receiver with
+`receiver.method(arguments)`; the declared parameters are the remaining
+arguments. Inside a method body, the receiver's members use the same dot
+marker as in the class body -- `.data`, `.grad`, or a call such as
+`.mul(other)` -- and `self` names the receiver when it is needed as a
+value. A member preceded by `cls.` is a class method; it is called on
+the class itself: `Class.method(arguments)`, and its body reaches class
+members through `cls.` in the same way.
+
+Method signatures and bodies follow the rules of named functions: the
+return type after `->` is required, and `=>` returns from the method.
+
+**To decide:** inheritance and composition, method overriding, and
+whether `self` and `cls` may be rebound.
 
 ## Output and string formatting
 

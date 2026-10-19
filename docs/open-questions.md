@@ -11,7 +11,7 @@
 | 7 | Numeric promotion (conversion rules between `int`, `real`, `complex`, and `quaternion`, including precision and overflow) | partially defined |
 | 8 | Error model (whether an error is a type, code/message pair, class, or another value) | undone |
 | 9 | `try`/`fallback` semantics (error propagation, rollback behavior, and access to the original error) | undone |
-| 10 | Class and object model (constructors, fields, methods, `self`, inheritance, and composition) | undone |
+| 10 | Class and object model (constructors, fields, methods, `self`, inheritance, and composition) | partially defined |
 | 11 | `#from`, `#parents`, and `#format` semantics (whether they are keywords, directives, or metadata annotations) | undone |
 | 12 | Member terminology (formal definition of “stranger” and the distinction between instance, class, and external variables) | undone |
 | 13 | Tensor indexing and slicing (index syntax, bounds checking, negative indices, and slice semantics) | partially defined |

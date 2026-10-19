@@ -29,6 +29,18 @@
     initializes those variables in the object's constructor to
     make them it's property.
 
+  - Methods:
+
+    The same dot convention distinguishes members from methods. An
+    instance method is introduced by a dot, like an attribute, and is
+    called on a receiver: `receiver.method(arguments)`. Inside its body,
+    the receiver's members keep the same leading dot (`.attribute`,
+    `.method()`), and `self` names the receiver only when it is passed as
+    a value; the remaining parameters are those written in the signature.
+    A class method is introduced by `cls.`; it is called on the class
+    itself, `Class.method(arguments)`, and reaches class members through
+    `cls.` the same way, typically as a construction helper.
+
   - Format:
 
     All the objects we use in a situation gives us information on

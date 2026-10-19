@@ -1,0 +1,122 @@
+(< Sorting algorithms exercising mutable array parameters, // integer
+   division, while-based loops, and the linear/persistent memory model.
+   There is no for loop: every iteration uses while. >)
+
+swap(values: arr[int] <n>, a: int, b: int) -> none:
+    temporary: int = values[a]
+    values[a] = values[b]
+    values[b] = temporary
+    => none
+
+selection_sort(values: arr[int] <n>) -> arr[int] <n>:
+    index: int = 0
+    while index < values.length - 1:
+        minimum: int = index
+        cursor: int = index + 1
+        while cursor < values.length:
+            if values[cursor] < values[minimum]:
+                minimum = cursor
+            cursor = cursor + 1
+        swap(values, index, minimum)
+        index = index + 1
+    => values
+
+bubble_sort(values: arr[int] <n>) -> arr[int] <n>:
+    limit: int = values.length - 1
+    while limit > 0:
+        index: int = 0
+        while index < limit:
+            if values[index] > values[index + 1]:
+                swap(values, index, index + 1)
+            index = index + 1
+        limit = limit - 1
+    => values
+
+insertion_sort(values: arr[int] <n>) -> arr[int] <n>:
+    index: int = 1
+    while index < values.length:
+        current: int = values[index]
+        cursor: int = index - 1
+        while cursor >= 0 and values[cursor] > current:
+            values[cursor + 1] = values[cursor]
+            cursor = cursor - 1
+        values[cursor + 1] = current
+        index = index + 1
+    => values
+
+shell_sort(values: arr[int] <n>) -> arr[int] <n>:
+    gap: int = values.length // 2
+    while gap > 0:
+        index: int = gap
+        while index < values.length:
+            current: int = values[index]
+            cursor: int = index
+            while cursor >= gap and values[cursor - gap] > current:
+                values[cursor] = values[cursor - gap]
+                cursor = cursor - gap
+            values[cursor] = current
+            index = index + 1
+        gap = gap // 2
+    => values
+
+is_sorted(values: arr[int] <n>) -> bool:
+    index: int = 1
+    while index < values.length:
+        if values[index - 1] > values[index]:
+            => false
+        index = index + 1
+    => true
+
+linear_search(values: arr[int] <n>, target: int) -> int:
+    index: int = 0
+    while index < values.length:
+        if values[index] == target:
+            => index
+        index = index + 1
+    => -1
+
+(< A sorted array lets binary search stop early.
+   => inside a loop returns from the enclosing function. >)
+binary_search(values: arr[int] <n>, target: int) -> int:
+    if not is_sorted(values):
+        => -1
+    left: int = 0
+    right: int = values.length - 1
+    while left <= right:
+        middle: int = (left + right) // 2
+        if values[middle] == target:
+            => middle
+        elif values[middle] < target:
+            left = middle + 1
+        else:
+            right = middle - 1
+    => -1
+
+(< Every sort consumes its argument in place and returns it.
+   copy() keeps the source valid, so one array can feed every sort. >)
+numbers: arr[int] <5> = [64, 25, 12, 22, 11]
+baseline: arr[int] <5> = copy(numbers)
+
+by_selection: arr[int] <5> = selection_sort(copy(numbers))
+by_bubble: arr[int] <5> = bubble_sort(copy(numbers))
+by_insertion: arr[int] <5> = insertion_sort(copy(numbers))
+by_shell: arr[int] <5> = shell_sort(numbers) (< consumes numbers >)
+
+print("baseline = {baseline}")             (< Expected output: [64, 25, 12, 22, 11] >)
+print("selection = {by_selection}")        (< Expected output: [11, 12, 22, 25, 64] >)
+print("bubble = {by_bubble}")              (< Expected output: [11, 12, 22, 25, 64] >)
+print("insertion = {by_insertion}")        (< Expected output: [11, 12, 22, 25, 64] >)
+print("shell = {by_shell}")                (< Expected output: [11, 12, 22, 25, 64] >)
+print("is_sorted = {is_sorted(by_shell)}") (< Expected output: true >)
+print("position of 22 = {binary_search(by_shell, 22)}") (< Expected output: 2 >)
+print("position of 99 = {binary_search(by_shell, 99)}") (< Expected output: -1 >)
+
+(< A persistent (!i) array survives transformations: assigning it shares
+   its storage, and the mutation inside insertion_sort detaches only the
+   alias, leaving the original unchanged. >)
+!i shared: arr[int] <3> = [3, 1, 2]
+alias: arr[int] <3> = shared
+alias = insertion_sort(alias)
+
+print("shared = {shared}") (< Expected output: [3, 1, 2] >)
+print("alias = {alias}")   (< Expected output: [1, 2, 3] >)

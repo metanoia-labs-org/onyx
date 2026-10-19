@@ -1,0 +1,121 @@
+(< Coroutines as an explicit state machine.
+   The :: construct is reserved for a future `process` form and has no
+   meaning yet, so cooperative yielding is modelled with instance
+   methods and round-robin scheduler loops: one method call is one
+   resumption that runs until its yield point (the function return).
+   Sharing Task instances between named variables and an arr[Task]
+   depends on the object model, which is still an open question. >)
+
+class Task:
+    #from(* name: string, total: int, step: int = 0, done: bool = false)
+    #format = "Task({.name}, step={.step}, done={.done})"
+
+    (< One resumption of this task: the body runs until it yields, which
+       is modelled here by returning from the method. >)
+    .advance() -> none:
+        if .done:
+            => none
+        if .step >= .total:
+            .done = true
+            print("{.name} finished")
+            => none
+        print("{.name} yields {.step}")
+        .step = .step + 1
+        => none
+
+(< Cooperative scheduler: round-robin over the live tasks until every
+   task is done. No task may block, because control is never stolen. >)
+run(tasks: arr[Task] <n>) -> none:
+    active: bool = true
+    while active:
+        active = false
+        index: int = 0
+        while index < tasks.length:
+            if not tasks[index].done:
+                tasks[index].advance()
+                active = true
+            index = index + 1
+    => none
+
+counter: Task = Task("counter", 3)
+countdown: Task = Task("countdown", 5)
+tasks: arr[Task] <2> = [counter, countdown]
+
+run(tasks)
+print("all tasks finished")
+(< Expected output:
+   counter yields 0
+   countdown yields 0
+   counter yields 1
+   countdown yields 1
+   counter yields 2
+   countdown yields 2
+   counter finished
+   countdown yields 3
+   countdown yields 4
+   countdown finished
+   all tasks finished >)
+
+(< Producer and consumer as cooperating coroutines over a one-slot
+   channel. Each method call transfers at most one value, then yields;
+   a full or empty channel is a yield, never a block. The interleaving
+   is decided entirely by the scheduler below. >)
+class Channel:
+    #from(* name: string = "channel")
+    .value: real = 0.0
+    .full: bool = false
+    .closed: bool = false
+    #format = "Channel({.name}, full={.full})"
+
+    .put(task: Task) -> none:
+        if task.done or .full:
+            => none
+        .value = 10.0 + task.step (< int promotes into real >)
+        .full = true
+        print("producer puts {.value}")
+        task.step = task.step + 1
+        if task.step >= task.total:
+            .closed = true
+            task.done = true
+            print("producer closed the channel")
+        => none
+
+    .take(task: Task) -> none:
+        if task.done or not .full:
+            => none
+        print("consumer takes {.value}")
+        .full = false
+        task.step = task.step + 1
+        if task.step >= task.total:
+            task.done = true
+        => none
+
+run_channel(channel: Channel, producer: Task, consumer: Task) -> none:
+    active: bool = true
+    while active:
+        active = false
+        if not producer.done:
+            channel.put(producer)
+            active = true
+        if not consumer.done:
+            channel.take(consumer)
+            active = true
+    => none
+
+link: Channel = Channel("numbers")
+sender: Task = Task("producer", 3)
+receiver: Task = Task("consumer", 3)
+
+run_channel(link, sender, receiver)
+(< Expected output:
+   producer puts 10.0
+   consumer takes 10.0
+   producer puts 11.0
+   consumer takes 11.0
+   producer puts 12.0
+   producer closed the channel
+   consumer takes 12.0 >)
+
+print("channel closed = {link.closed}")    (< Expected output: true >)
+print("producer done = {sender.done}")     (< Expected output: true >)
+print("consumer done = {receiver.done}")   (< Expected output: true >)
