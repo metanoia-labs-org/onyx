@@ -1,47 +1,57 @@
-(< Coroutines as an explicit state machine.
-   The :: construct is reserved for a future `process` form and has no
-   meaning yet, so cooperative yielding is modelled with instance
-   methods and round-robin scheduler loops: one method call is one
-   resumption that runs until its yield point (the function return).
-   Sharing Task instances between named variables and an arr[Task]
-   depends on the object model, which is still an open question. >)
+(< Coroutines as explicit state machines, settled rules only.
+
+   The :: construct is reserved for a future process form, so a coroutine
+   is modelled as a value plus a method that returns its next state. One
+   method call is one resumption: it runs until its yield point, which is
+   the return. The scheduler keeps the current state in a variable and
+   rebinds it (task = task.advance()), the same pattern as in the
+   micrograd snippet.
+
+   Exercised: #from with * on several required fields, defaults, #format,
+   instance methods with the leading dot, a local name that differs from an
+   attribute only by the dot, if/else, while, not, %, real promotion from
+   int, rebinding a linear variable from a child scope.
+
+   Left out on purpose, because still open: mutating attributes in place,
+   arr of class instances, sharing one task between several owners (which
+   is why there is no arr[Task] and no shared channel object here). >)
 
 class Task:
-    #from(* name: string, total: int, step: int = 0, done: bool = false)
-    #format = "Task({.name}, step={.step}, done={.done})"
+    #from(* name: string, * total: int, step: int = 0)
+    #format = "Task({.name}, step={.step})"
 
-    (< One resumption of this task: the body runs until it yields, which
-       is modelled here by returning from the method. >)
-    .advance() -> none:
-        if .done:
-            => none
-        if .step >= .total:
-            .done = true
+    (< A task is finished once its step passes total. >)
+    .is_done() -> bool:
+        => .step > .total
+
+    .same() -> Task:
+        => Task(.name, .total, .step)
+
+    (< One resumption: yield a step, or report the finish, then move on. >)
+    .advance() -> Task:
+        if .is_done():
+            => .same()
+        if .step == .total:
             print("{.name} finished")
-            => none
-        print("{.name} yields {.step}")
-        .step = .step + 1
-        => none
+        else:
+            print("{.name} yields {.step}")
+        => Task(.name, .total, .step + 1)
 
-(< Cooperative scheduler: round-robin over the live tasks until every
-   task is done. No task may block, because control is never stolen. >)
-run(tasks: arr[Task] <n>) -> none:
-    active: bool = true
-    while active:
-        active = false
-        index: int = 0
-        while index < tasks.length:
-            if not tasks[index].done:
-                tasks[index].advance()
-                active = true
-            index = index + 1
-    => none
-
+(< Cooperative round robin over two tasks. No task blocks: control is
+   never taken away, each call returns by itself. >)
 counter: Task = Task("counter", 3)
 countdown: Task = Task("countdown", 5)
-tasks: arr[Task] <2> = [counter, countdown]
 
-run(tasks)
+active: bool = true
+while active:
+    active = false
+    if not counter.is_done():
+        counter = counter.advance()
+        active = true
+    if not countdown.is_done():
+        countdown = countdown.advance()
+        active = true
+
 print("all tasks finished")
 (< Expected output:
    counter yields 0
@@ -56,66 +66,67 @@ print("all tasks finished")
    countdown finished
    all tasks finished >)
 
-(< Producer and consumer as cooperating coroutines over a one-slot
-   channel. Each method call transfers at most one value, then yields;
-   a full or empty channel is a yield, never a block. The interleaving
-   is decided entirely by the scheduler below. >)
-class Channel:
-    #from(* name: string = "channel")
-    .value: real = 0.0
-    .full: bool = false
-    .closed: bool = false
-    #format = "Channel({.name}, full={.full})"
+(< Producer and consumer over a one-slot channel, all in one state value.
+   A full or empty slot is a yield, never a block: the method prints that
+   it waits and returns the state unchanged. The consumer only runs on
+   turns that are multiples of 3, so the producer meets a full slot. >)
+class Pipeline:
+    #from(* total: int, produced: int = 0, consumed: int = 0, slot: real = 0.0, full: bool = false, closed: bool = false)
+    #format = "Pipeline(produced={.produced}, consumed={.consumed}, full={.full})"
 
-    .put(task: Task) -> none:
-        if task.done or .full:
-            => none
-        .value = 10.0 + task.step (< int promotes into real >)
-        .full = true
-        print("producer puts {.value}")
-        task.step = task.step + 1
-        if task.step >= task.total:
-            .closed = true
-            task.done = true
+    .is_done() -> bool:
+        => .consumed >= .total
+
+    .same() -> Pipeline:
+        => Pipeline(.total, .produced, .consumed, .slot, .full, .closed)
+
+    .produce() -> Pipeline:
+        if .produced >= .total:
+            => .same()
+        if .full:
+            print("producer waits")
+            => .same()
+        value: real = 10.0 + .produced
+        print("producer puts {value}")
+        closed: bool = .produced + 1 >= .total
+        if closed:
             print("producer closed the channel")
-        => none
+        => Pipeline(.total, .produced + 1, .consumed, value, true, closed)
 
-    .take(task: Task) -> none:
-        if task.done or not .full:
-            => none
-        print("consumer takes {.value}")
-        .full = false
-        task.step = task.step + 1
-        if task.step >= task.total:
-            task.done = true
-        => none
+    .consume() -> Pipeline:
+        if not .full:
+            print("consumer waits")
+            => .same()
+        print("consumer takes {.slot}")
+        => Pipeline(.total, .produced, .consumed + 1, .slot, false, .closed)
 
-run_channel(channel: Channel, producer: Task, consumer: Task) -> none:
-    active: bool = true
-    while active:
-        active = false
-        if not producer.done:
-            channel.put(producer)
-            active = true
-        if not consumer.done:
-            channel.take(consumer)
-            active = true
-    => none
+    (< Consumer first on turns that are multiples of 3, producer always. >)
+    .tick(turn: int) -> Pipeline:
+        if turn % 3 == 0:
+            taken: Pipeline = .consume()
+            => taken.produce()
+        => .produce()
 
-link: Channel = Channel("numbers")
-sender: Task = Task("producer", 3)
-receiver: Task = Task("consumer", 3)
+channel: Pipeline = Pipeline(3)
+turn: int = 0
+while not channel.is_done():
+    channel = channel.tick(turn)
+    turn = turn + 1
 
-run_channel(link, sender, receiver)
 (< Expected output:
+   consumer waits
    producer puts 10.0
+   producer waits
+   producer waits
    consumer takes 10.0
    producer puts 11.0
+   producer waits
+   producer waits
    consumer takes 11.0
    producer puts 12.0
    producer closed the channel
    consumer takes 12.0 >)
 
-print("channel closed = {link.closed}")    (< Expected output: true >)
-print("producer done = {sender.done}")     (< Expected output: true >)
-print("consumer done = {receiver.done}")   (< Expected output: true >)
+print("channel = {channel}")   (< Expected output: Pipeline(produced=3, consumed=3, full=false) >)
+print("closed = {channel.closed}")  (< Expected output: true >)
+print("turns = {turn}")        (< Expected output: 10 >)

@@ -1,6 +1,18 @@
-(< Sorting algorithms exercising mutable array parameters, // integer
-   division, while-based loops, and the linear/persistent memory model.
-   There is no for loop: every iteration uses while. >)
+(< Sorting and searching, settled rules only.
+
+   Exercised: while loops (no for), if/elif/else, short-circuit and/or,
+   not, // and + - on positive operands, => inside loops, while used as an
+   expression with :break value, copy(), assignment that consumes, reads
+   that do not consume (index, .length, sum), and !i sharing with copy on
+   mutation.
+
+   Memory model used here: every sort mutates its arr parameter in place
+   and returns none, so nothing is consumed and the caller sees the result.
+   copy() is the explicit way to keep the source.
+
+   Left out on purpose, because still open: sorts that return an arr
+   (mutable parameter versus consumption), mutating a !i array through a
+   function parameter, .shape, empty arrays, negative operands of //. >)
 
 swap(values: arr[int] <n>, a: int, b: int) -> none:
     temporary: int = values[a]
@@ -8,7 +20,7 @@ swap(values: arr[int] <n>, a: int, b: int) -> none:
     values[b] = temporary
     => none
 
-selection_sort(values: arr[int] <n>) -> arr[int] <n>:
+selection_sort(values: arr[int] <n>) -> none:
     index: int = 0
     while index < values.length - 1:
         minimum: int = index
@@ -19,9 +31,9 @@ selection_sort(values: arr[int] <n>) -> arr[int] <n>:
             cursor = cursor + 1
         swap(values, index, minimum)
         index = index + 1
-    => values
+    => none
 
-bubble_sort(values: arr[int] <n>) -> arr[int] <n>:
+bubble_sort(values: arr[int] <n>) -> none:
     limit: int = values.length - 1
     while limit > 0:
         index: int = 0
@@ -30,9 +42,9 @@ bubble_sort(values: arr[int] <n>) -> arr[int] <n>:
                 swap(values, index, index + 1)
             index = index + 1
         limit = limit - 1
-    => values
+    => none
 
-insertion_sort(values: arr[int] <n>) -> arr[int] <n>:
+insertion_sort(values: arr[int] <n>) -> none:
     index: int = 1
     while index < values.length:
         current: int = values[index]
@@ -42,9 +54,9 @@ insertion_sort(values: arr[int] <n>) -> arr[int] <n>:
             cursor = cursor - 1
         values[cursor + 1] = current
         index = index + 1
-    => values
+    => none
 
-shell_sort(values: arr[int] <n>) -> arr[int] <n>:
+shell_sort(values: arr[int] <n>) -> none:
     gap: int = values.length // 2
     while gap > 0:
         index: int = gap
@@ -57,7 +69,7 @@ shell_sort(values: arr[int] <n>) -> arr[int] <n>:
             values[cursor] = current
             index = index + 1
         gap = gap // 2
-    => values
+    => none
 
 is_sorted(values: arr[int] <n>) -> bool:
     index: int = 1
@@ -75,8 +87,20 @@ linear_search(values: arr[int] <n>, target: int) -> int:
         index = index + 1
     => -1
 
-(< A sorted array lets binary search stop early.
-   => inside a loop returns from the enclosing function. >)
+(< Same search written with while as an expression: the loop always ends
+   through :break, so its value is an int. >)
+search_with_break(values: arr[int] <n>, target: int) -> int:
+    index: int = 0
+    position: int = while true:
+        if index >= values.length:
+            :break -1
+        if values[index] == target:
+            :break index
+        index = index + 1
+    => position
+
+(< Binary search refuses unsorted input. => inside a loop returns from the
+   enclosing function. >)
 binary_search(values: arr[int] <n>, target: int) -> int:
     if not is_sorted(values):
         => -1
@@ -92,31 +116,74 @@ binary_search(values: arr[int] <n>, target: int) -> int:
             right = middle - 1
     => -1
 
-(< Every sort consumes its argument in place and returns it.
-   copy() keeps the source valid, so one array can feed every sort. >)
+(< 1. One source, four independent copies. copy() keeps the source valid
+   and unchanged. >)
 numbers: arr[int] <5> = [64, 25, 12, 22, 11]
-baseline: arr[int] <5> = copy(numbers)
 
-by_selection: arr[int] <5> = selection_sort(copy(numbers))
-by_bubble: arr[int] <5> = bubble_sort(copy(numbers))
-by_insertion: arr[int] <5> = insertion_sort(copy(numbers))
-by_shell: arr[int] <5> = shell_sort(numbers) (< consumes numbers >)
+by_selection: arr[int] <5> = copy(numbers)
+by_bubble: arr[int] <5> = copy(numbers)
+by_insertion: arr[int] <5> = copy(numbers)
+by_shell: arr[int] <5> = copy(numbers)
 
-print("baseline = {baseline}")             (< Expected output: [64, 25, 12, 22, 11] >)
-print("selection = {by_selection}")        (< Expected output: [11, 12, 22, 25, 64] >)
-print("bubble = {by_bubble}")              (< Expected output: [11, 12, 22, 25, 64] >)
-print("insertion = {by_insertion}")        (< Expected output: [11, 12, 22, 25, 64] >)
-print("shell = {by_shell}")                (< Expected output: [11, 12, 22, 25, 64] >)
-print("is_sorted = {is_sorted(by_shell)}") (< Expected output: true >)
-print("position of 22 = {binary_search(by_shell, 22)}") (< Expected output: 2 >)
-print("position of 99 = {binary_search(by_shell, 99)}") (< Expected output: -1 >)
+selection_sort(by_selection)
+bubble_sort(by_bubble)
+insertion_sort(by_insertion)
+shell_sort(by_shell)
 
-(< A persistent (!i) array survives transformations: assigning it shares
-   its storage, and the mutation inside insertion_sort detaches only the
-   alias, leaving the original unchanged. >)
+print(numbers)        (< Expected output: [64, 25, 12, 22, 11] >)
+print(by_selection)   (< Expected output: [11, 12, 22, 25, 64] >)
+print(by_bubble)      (< Expected output: [11, 12, 22, 25, 64] >)
+print(by_insertion)   (< Expected output: [11, 12, 22, 25, 64] >)
+print(by_shell)       (< Expected output: [11, 12, 22, 25, 64] >)
+
+(< 2. Edge shapes: reversed input, one element, duplicates. >)
+reversed_input: arr[int] <6> = [6, 5, 4, 3, 2, 1]
+insertion_sort(reversed_input)
+print(reversed_input) (< Expected output: [1, 2, 3, 4, 5, 6] >)
+
+single: arr[int] <1> = [7]
+bubble_sort(single)
+print(single)         (< Expected output: [7] >)
+
+duplicates: arr[int] <5> = [3, 1, 3, 2, 1]
+shell_sort(duplicates)
+print(duplicates)     (< Expected output: [1, 1, 2, 3, 3] >)
+
+(< 3. Searching. >)
+print("is_sorted before = {is_sorted(numbers)}")           (< Expected output: false >)
+print("is_sorted after = {is_sorted(by_shell)}")           (< Expected output: true >)
+print("linear 25 = {linear_search(numbers, 25)}")          (< Expected output: 1 >)
+print("linear 99 = {linear_search(numbers, 99)}")          (< Expected output: -1 >)
+print("break 12 = {search_with_break(numbers, 12)}")       (< Expected output: 2 >)
+print("break 99 = {search_with_break(numbers, 99)}")       (< Expected output: -1 >)
+print("binary 22 = {binary_search(by_shell, 22)}")         (< Expected output: 2 >)
+print("binary 99 = {binary_search(by_shell, 99)}")         (< Expected output: -1 >)
+print("binary on unsorted = {binary_search(numbers, 22)}") (< Expected output: -1 >)
+print("binary 3 in duplicates = {binary_search(duplicates, 3)}") (< Expected output: 3 >)
+
+(< 4. Consumption. Assignment moves the array: after this line the name
+   original is no longer used. The new name sorts and prints. >)
+original: arr[int] <3> = [3, 1, 2]
+moved: arr[int] <3> = original  (< consumes original >)
+insertion_sort(moved)
+print(moved)          (< Expected output: [1, 2, 3] >)
+
+(< Reads and reductions do not consume: probe stays valid. >)
+probe: arr[int] <3> = [9, 8, 7]
+first: int = probe[0]
+size: int = probe.length
+total: int = sum(probe)
+print("first = {first}, size = {size}, total = {total}") (< Expected output: first = 9, size = 3, total = 24 >)
+print(probe)          (< Expected output: [9, 8, 7] >)
+
+(< 5. Persistent array: assignments share storage, the first mutation
+   copies. Only the mutated alias changes. >)
 !i shared: arr[int] <3> = [3, 1, 2]
 alias: arr[int] <3> = shared
-alias = insertion_sort(alias)
+other: arr[int] <3> = shared
 
-print("shared = {shared}") (< Expected output: [3, 1, 2] >)
-print("alias = {alias}")   (< Expected output: [1, 2, 3] >)
+alias[0] = 77
+
+print(shared)         (< Expected output: [3, 1, 2] >)
+print(other)          (< Expected output: [3, 1, 2] >)
+print(alias)          (< Expected output: [77, 1, 2] >)

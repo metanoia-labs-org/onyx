@@ -1,24 +1,33 @@
-(< A Micrograd-inspired scaffold: Value nodes, instance methods for the
-   forward operations and the local backward rules, and a class method
-   for construction. The tuple child traversal is still an open question,
-   so parents are recorded but never walked: the topological order is
-   written by hand for a fixed graph. >)
+(< A Micrograd-inspired scaffold, settled rules only.
+
+   Design: a Value node is never mutated. A method that would update a node
+   returns a new node, and the caller rebinds the same name
+   (x = x.accumulate(g)). That pattern is valid whether or not the old
+   binding counts as consumed, so it does not depend on open questions.
+   The local backward rules are pure functions that return the gradient
+   contribution; the chain rule is written out by hand for a fixed graph.
+
+   Exercised: #from with * and defaults, #format, instance methods with the
+   leading dot, a class method with cls., Class.method(...) calls, lambdas
+   with two parameters, real arithmetic, linear rebinding, !i variables.
+
+   !i is used on every node that is read again after being an operand, so
+   the snippet does not rely on how method calls consume class instances.
+   That question is open.
+
+   Left out on purpose, because still open: tuple children and graph
+   traversal, assigning to an attribute, sharing one node between several
+   owners, closures that capture, self passed as a value. >)
 
 class Value:
-    #from(* data: real, children: tuple = (), op: string = "", label: string = "")
-    .grad: real = 0.0
-    .backward: none = lambda () = none
+    #from(* data: real, grad: real = 0.0, op: string = "", label: string = "")
     #format = "Value({.data}, grad={.grad}, label={.label})"
 
-    (< Instance methods: the receiver's members are reached with a leading
-       dot, the same marker used in the class body; `self` names the
-       receiver only when it is passed as a value. Each call builds a new
-       node carrying both operands as children. >)
     .add(other: Value) -> Value:
-        => Value(.data + other.data, (self, other), "+", "add")
+        => Value(.data + other.data, 0.0, "+", "add")
 
     .mul(other: Value) -> Value:
-        => Value(.data * other.data, (self, other), "*", "mul")
+        => Value(.data * other.data, 0.0, "*", "mul")
 
     .negate() -> Value:
         => .mul(Value.constant(-1.0))
@@ -26,37 +35,42 @@ class Value:
     .subtract(other: Value) -> Value:
         => .add(other.negate())
 
-    (< Local backward rules. `.grad` must already hold the gradient
-       flowing into the receiver; each rule accumulates the chain-rule
-       contribution on the parents. >)
-    .backward_add(left: Value, right: Value) -> none:
-        left.grad = left.grad + .grad
-        right.grad = right.grad + .grad
-        => none
+    (< Same node with its gradient increased: the update is a new value. >)
+    .accumulate(delta: real) -> Value:
+        => Value(.data, .grad + delta, .op, .label)
 
-    .backward_mul(left: Value, right: Value) -> none:
-        left.grad = left.grad + .grad * right.data
-        right.grad = right.grad + .grad * left.data
-        => none
+    .zero_grad() -> Value:
+        => Value(.data, 0.0, .op, .label)
 
-    (< Class method: cls binds to Value and acts as a construction
-       helper, so constant nodes are not spelled out by hand. >)
+    (< cls. marks a class method: a construction helper. >)
     cls.constant(value: real) -> Value:
-        => Value(value, (), "const", "constant")
+        => Value(value, 0.0, "const", "constant")
 
-(< y = w * x + b, the classic micrograd starting graph.
-   Backward is seeded with 1.0 on the output and then runs in reverse
-   topological order: the add node first, then the mul node. >)
-x: Value = Value(-4.0, (), "input", "x")
-w: Value = Value(2.0, (), "input", "w")
-b: Value = Value(10.0, (), "const", "b")
+(< Local backward rules. For l + r both operands receive the upstream
+   gradient. For l * r each operand receives the upstream gradient times
+   the other operand's data. >)
+add_backward(upstream: real) -> real:
+    => upstream
 
-product: Value = w.mul(x)
+mul_backward(upstream: real, other: Value) -> real:
+    => upstream * other.data
+
+(< y = w * x + b, the classic starting graph. >)
+!i x: Value = Value(-4.0, 0.0, "input", "x")
+!i w: Value = Value(2.0, 0.0, "input", "w")
+!i b: Value = Value(10.0, 0.0, "const", "b")
+
+!i product: Value = w.mul(x)
 output: Value = product.add(b)
 
-output.grad = 1.0
-output.backward_add(product, b)
-product.backward_mul(w, x)
+(< Seed the output, then run the rules in reverse order. output is linear:
+   each rebinding consumes the old node and the new one takes its place. >)
+output = output.accumulate(1.0)
+
+b = b.accumulate(add_backward(output.grad))
+product = product.accumulate(add_backward(output.grad))
+w = w.accumulate(mul_backward(product.grad, x))
+x = x.accumulate(mul_backward(product.grad, w))
 
 print("y = {output}")                     (< Expected output: Value(2.0, grad=1.0, label=add) >)
 print("dl/dw = {w.grad}")                 (< Expected output: -4.0 >)
@@ -64,31 +78,35 @@ print("dl/dx = {x.grad}")                 (< Expected output: 2.0 >)
 print("dl/db = {b.grad}")                 (< Expected output: 1.0 >)
 print("dl/d(product) = {product.grad}")   (< Expected output: 1.0 >)
 
-(< Finite-difference sanity check on w, mirroring micrograd's check:
-   the analytic gradient must match the numerical one. >)
-epsilon: real = 0.00001
+(< Finite-difference check on w. epsilon is exactly representable and y is
+   linear in w, so the central difference is exact. >)
+epsilon: real = 0.5
 raised: real = ((w.data + epsilon) * x.data) + b.data
 lowered: real = ((w.data - epsilon) * x.data) + b.data
 numerical: real = (raised - lowered) / (2.0 * epsilon)
 print("numerical dl/dw = {numerical}")    (< Expected output: -4.0 >)
 
-(< The .backward field stores a zero-parameter closure. What such a
-   closure may capture from an enclosing scope is still an open
-   design question, so this one captures nothing. >)
-output.backward = lambda () = print("backward() called")
-output.backward()                         (< Expected output: backward() called >)
+(< A lambda with two parameters and no capture: one gradient descent step
+   on w with a fixed rate of 0.5. >)
+descent = lambda (current: real, gradient: real) = current - 0.5 * gradient
+stepped: real = descent(w.data, w.grad)
+after: real = stepped * x.data + b.data
+print("w after one step = {stepped}")     (< Expected output: 4.0 >)
+print("y after one step = {after}")        (< Expected output: -6.0 >)
 
-(< Composed expressions reuse the same two rules on a fresh pass:
-   subtract(x, w) = x + (w * -1), so d(x-w)/dx = 1 and d(x-w)/dw = -1. >)
-x.grad = 0.0
-w.grad = 0.0
+(< A composed expression on a fresh pass: x - w is x + (w * -1), so
+   d(x-w)/dx = 1 and d(x-w)/dw = -1. >)
+x = x.zero_grad()
+w = w.zero_grad()
 
-difference: Value = x.subtract(w)
-neg_term: Value = w.negate()
+!i minus_one: Value = Value.constant(-1.0)
+!i neg_term: Value = w.negate()
+difference: Value = x.add(neg_term)
 
-difference.grad = 1.0
-difference.backward_add(x, neg_term)
-neg_term.backward_mul(w, Value.constant(-1.0))
+difference = difference.accumulate(1.0)
+x = x.accumulate(add_backward(difference.grad))
+neg_term = neg_term.accumulate(add_backward(difference.grad))
+w = w.accumulate(mul_backward(neg_term.grad, minus_one))
 
 print("x - w = {difference.data}")        (< Expected output: -6.0 >)
 print("d(x-w)/dx = {x.grad}")             (< Expected output: 1.0 >)

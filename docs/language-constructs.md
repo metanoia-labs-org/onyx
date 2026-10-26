@@ -204,6 +204,11 @@ position: int = while true:
 
 ## Blocks, scope, and lifetime
 
+A scope is formed by indentation. Each increase in indentation level opens a
+new child scope, and returning to the previous level closes it. The
+introducing `:` only announces a block; indentation delimits it. Names
+declared in a block do not exist after it.
+
 Every indented block creates a child lexical scope. A child scope can read and
 modify variables declared in any enclosing parent scope. A parent scope cannot
 access variables declared only in one of its child scopes.

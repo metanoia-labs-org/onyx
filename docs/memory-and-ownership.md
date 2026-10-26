@@ -43,6 +43,25 @@ m: int = a[0]      (< does not consume a >)
 print(a)           (< valid: a = [1, 2, 3] >)
 ```
 
+## Consumption across scopes
+
+A name declared in a child scope ceases to exist when that scope closes. A
+variable of an enclosing scope that is consumed inside a child scope stays
+consumed after the block, if any path through the block may consume it.
+
+```onyx
+a: arr[int] <3> = [1, 2, 3]
+
+if condition:
+    b = a        (< consumes a; b exists only inside this block >)
+                 (< end of block: b ceases to exist >)
+
+print(a)         (< error: a may have been consumed by the block >)
+```
+
+Validity is decided at compile time, from the text of the program alone. It
+never depends on the value of a condition.
+
 ## Persistent variables (`!i`)
 
 A variable declared with the `!i` prefix is **persistent**. Persistent
@@ -136,6 +155,7 @@ such as a function return or a closure capture.
 | `string` | never consumed; compared and concatenated by value |
 
 **To decide:** the exact set of consuming operations, the behavior when a
-variable is used twice in the same expression (e.g. `b = a + a`), the
-interaction with closures and function returns, and the final name of the
-`!i` prefix.
+variable is used twice in the same expression (e.g. `b = a + a`), the behavior
+of a `while` whose body consumes a variable of an enclosing scope (where a
+second iteration would find it already consumed), the interaction with closures
+and function returns, and the final name of the `!i` prefix.
