@@ -3,7 +3,7 @@
    Exercised: while loops (no for), if/elif/else, short-circuit and/or,
    not, // and + - on positive operands, => inside loops, while used as an
    expression with :break value, copy(), assignment that consumes, reads
-   that do not consume (index, .length, sum), and !i sharing with copy on
+   that do not consume (index, .length, sum), and !p sharing with copy on
    mutation.
 
    Memory model used here: every sort mutates its arr parameter in place
@@ -11,7 +11,7 @@
    copy() is the explicit way to keep the source.
 
    Left out on purpose, because still open: sorts that return an arr
-   (mutable parameter versus consumption), mutating a !i array through a
+   (mutable parameter versus consumption), mutating a !p array through a
    function parameter, .shape, empty arrays, negative operands of //. >)
 
 swap(values: arr[int] <n>, a: int, b: int) -> none:
@@ -178,7 +178,7 @@ print(probe)          (< Expected output: [9, 8, 7] >)
 
 (< 5. Persistent array: assignments share storage, the first mutation
    copies. Only the mutated alias changes. >)
-!i shared: arr[int] <3> = [3, 1, 2]
+!p shared: arr[int] <3> = [3, 1, 2]
 alias: arr[int] <3> = shared
 other: arr[int] <3> = shared
 

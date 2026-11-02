@@ -9,9 +9,9 @@
 
    Exercised: #from with * and defaults, #format, instance methods with the
    leading dot, a class method with cls., Class.method(...) calls, lambdas
-   with two parameters, real arithmetic, linear rebinding, !i variables.
+   with two parameters, real arithmetic, linear rebinding, !p variables.
 
-   !i is used on every node that is read again after being an operand, so
+   !p is used on every node that is read again after being an operand, so
    the snippet does not rely on how method calls consume class instances.
    That question is open.
 
@@ -56,11 +56,11 @@ mul_backward(upstream: real, other: Value) -> real:
     => upstream * other.data
 
 (< y = w * x + b, the classic starting graph. >)
-!i x: Value = Value(-4.0, 0.0, "input", "x")
-!i w: Value = Value(2.0, 0.0, "input", "w")
-!i b: Value = Value(10.0, 0.0, "const", "b")
+!p x: Value = Value(-4.0, 0.0, "input", "x")
+!p w: Value = Value(2.0, 0.0, "input", "w")
+!p b: Value = Value(10.0, 0.0, "const", "b")
 
-!i product: Value = w.mul(x)
+!p product: Value = w.mul(x)
 output: Value = product.add(b)
 
 (< Seed the output, then run the rules in reverse order. output is linear:
@@ -99,8 +99,8 @@ print("y after one step = {after}")        (< Expected output: -6.0 >)
 x = x.zero_grad()
 w = w.zero_grad()
 
-!i minus_one: Value = Value.constant(-1.0)
-!i neg_term: Value = w.negate()
+!p minus_one: Value = Value.constant(-1.0)
+!p neg_term: Value = w.negate()
 difference: Value = x.add(neg_term)
 
 difference = difference.accumulate(1.0)

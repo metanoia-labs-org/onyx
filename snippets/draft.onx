@@ -1,0 +1,40 @@
+(< Onyx draft script >)
+
+print("Hello Worlds")
+
+doc:
+    We should think about the variable's mutability and their conceptual notation.
+    In onyx, the variable mutation system is based on the theory of linear types.
+
+n: int = 7
+
+print("There are {n} days in a week") (< The concept of string formatting will be explained later >)
+
+x: int = n (< n evolves into x and becomes unavailable >)
+
+(< x is never used: warning >)
+
+(< --- >)
+
+(< Sequences and iteration (Preview) >)
+
+doc:
+    A for loop is an iterator construct. It obtains one value at a time from
+    its source and executes its body once for each obtained value.
+
+    seq[T] is lazy: it computes its next value only when a for loop requests
+    it. A seq has no indexing ([]), .length, or .shape; those belong to arr.
+
+    A for loop consumes a seq. Once a seq has been traversed, it is no longer
+    available. A for loop only reads an arr, so the arr remains available after
+    the traversal.
+
+numbers: arr[int] <3> = [1, 2, 3]
+
+for number in numbers:
+    print(number)
+
+print(numbers) (< Valid: a for loop reads an arr without consuming it >)
+
+(< bseq, seq construction, token, and the exact syntax of for sources are
+   intentionally left open until the sequence contract is fully documented. >)

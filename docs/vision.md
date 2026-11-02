@@ -14,5 +14,7 @@ stable language specification.
 
 - Prefer predictable rules over many special cases.
 - Keep type annotations optional when inference is unambiguous.
+- Use static typing and compile-time verification to make memory, ownership,
+  and performance guarantees dependable.
 - Make numerical conversion and tensor-shape rules explicit.
 - Specify errors and edge cases before relying on them in an implementation.

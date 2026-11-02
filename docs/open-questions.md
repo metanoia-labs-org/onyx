@@ -6,7 +6,7 @@
 | 2 | Variable mutability (can variables and attributes be reassigned? const vs. mutable?) | partially defined |
 | 3 | Scoping and closures (how `lambda` captures variables from its enclosing scope) | partially defined |
 | 4 | Functions and closures (named functions, return behavior, recursion, and closure lifetime) | partially defined |
-| 5 | Type system (type inference, explicit annotations, generic types, and compatibility rules) | undone |
+| 5 | Type system (static typing, inference, explicit annotations, generic types, and compatibility rules) | partially defined |
 | 6 | `template` keyword (syntax, declaration scope, instantiation, and interaction with generic types) | undone |
 | 7 | Numeric promotion (conversion rules between `int`, `real`, `complex`, and `quaternion`, including precision and overflow) | partially defined |
 | 8 | Error model (whether an error is a type, code/message pair, class, or another value) | undone |
@@ -21,5 +21,5 @@
 | 17 | Modules and interoperability (imports, packages, foreign-function interfaces, and external libraries) | undone |
 | 18 | Diagnostics and tooling (compiler errors, warnings, formatting, testing, debugging, and documentation conventions) | undone |
 | 19 | Implementation roadmap (lexer, parser, AST, type checker, interpreter/compiler, standard library, and test suite) | undone |
-| 20 | Transfer memory: linear consumption, `!i`, `copy`; consumption across scopes (branches, loops); behaviour for classes and for calls whose result is discarded. Lead: a scope is an arena (storage released when the scope closes; arena chosen by the destination of a value, not by where it was created). | partially defined |
-| 21 | Flow / identity memory: shared mutable state evolving across applications (mappers, continuous computation, graphs, tasks); relation to `!i` and to read-only access | undone |
+| 20 | Transfer memory: linear consumption, `!p`, `copy`; consumption across scopes (branches, loops); behaviour for classes and for calls whose result is discarded. Lead: a scope is an arena (storage released when the scope closes; arena chosen by the destination of a value, not by where it was created). | partially defined |
+| 21 | Flow / identity memory: shared mutable state evolving across applications (mappers, continuous computation, graphs, tasks); relation to `!p` and to read-only access | undone |

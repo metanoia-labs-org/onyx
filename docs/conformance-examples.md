@@ -7,6 +7,10 @@ These examples become the first interpreter/compiler test suite.
 (< Numeric promotion. Expected type: real; expected value: 2.5. >)
 value = 2 + 0.5
 
+(< Static typing. Expected: compilation error because count is int. >)
+count: int = 7
+count = "seven"
+
 (< Closure semantics. The expected result depends on the capture rule. >)
 offset = 1
 add_offset = lambda (n: int) = n + offset

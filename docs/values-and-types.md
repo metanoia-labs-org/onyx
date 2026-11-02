@@ -28,6 +28,31 @@ Note: There is interoperability between numerical types (i.e. `int`, `real`,
 
 This suggests that the basic operators can be applied in between them without any problem.
 
+## Static typing and inference
+
+Onyx is a statically typed language with strong type inference. Every value and
+binding has a type known to the compiler before execution. Type errors are
+therefore compilation errors, rather than failures that appear only when a
+particular runtime path is reached.
+
+```onyx
+count: int = 7
+count = "seven" (< compilation error: string is not compatible with int >)
+```
+
+Annotations are optional when a type can be inferred unambiguously:
+
+```onyx
+count = 7                    (< inferred as int >)
+ratio = 0.5                  (< inferred as real >)
+values = [1, 2, 3]           (< inferred as arr[int] <3> >)
+```
+
+Static typing supports Onyx's memory model: the compiler can verify
+consumption, ownership transfers, tensor shapes where known, and incompatible
+transformations before the program runs. It also allows optimizations without
+requiring runtime type checks in performance-sensitive code.
+
 ## Numeric operations and interoperability
 
 Here we'll discuss about type compatibility with some operations and tell more details on interaction between types and operations (interoperability).
