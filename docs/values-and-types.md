@@ -2,31 +2,18 @@
 
 ## Basic data types
 
-We can note that these are the fundamental data types found in many
-programming language. However, we need to mention new types integration to
-the language, to improve syntax and prorgamming accross precision,
-optimization, and diversity.
+Onyx provides the following fundamental data types:
 
 - `string`
-
-- `int` (, int32, int64, int128, int256, etc...)
-
-- `real` (, r32, r64, r128, r256, etc...)
-
+- `int` (including sized variants `int32`, `int64`, `int128`, `int256`)
+- `real` (including sized variants `r32`, `r64`, `r128`, `r256`)
 - `complex`
-
 - `quaternion`
-
 - `bool`
-
-- `arr` for array
-
+- `arr` (multidimensional tensors)
 - `none`
 
-Note: There is interoperability between numerical types (i.e. `int`, `real`,
-`complex`, and `quaternion`).
-
-This suggests that the basic operators can be applied in between them without any problem.
+There is seamless interoperability between numerical types (`int`, `real`, `complex`, and `quaternion`), enabling binary arithmetic operators to combine them directly.
 
 ## Static typing and inference
 
@@ -52,10 +39,6 @@ Static typing supports Onyx's memory model: the compiler can verify
 consumption, ownership transfers, tensor shapes where known, and incompatible
 transformations before the program runs. It also allows optimizations without
 requiring runtime type checks in performance-sensitive code.
-
-## Numeric operations and interoperability
-
-Here we'll discuss about type compatibility with some operations and tell more details on interaction between types and operations (interoperability).
 
 ## Numeric promotion
 
@@ -219,5 +202,5 @@ Quaternion powers accept integer and real exponents:
   principal logarithm.
 - A quaternion exponent is not supported in the first version.
 
-A little remark: all mathematical operations listed here have exactly the same properties as the mathematical rules operate.
-`token` and `map` are set aside for now -- to be introduced later once their syntax is decided.
+All mathematical operations defined here follow standard mathematical semantics.
+`token` and `map` are deferred until their syntax and semantics are settled.

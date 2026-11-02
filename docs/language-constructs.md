@@ -70,26 +70,25 @@ closure capture.
 (< Simulating Value class from micrograd: >)
 
 class Value:
-    #from(* data: real, children: tuple = (), op: string = "", label: string = "") (<They all become attributes. `data` is the only required one -- the others must have a default value, or it's a compile/interpret error.>)
-    .grad: real = 0.0 (< All variables preceded of a dot belong to the instance. >)
+    #from(* data: real, grad: real = 0.0, op: string = "", label: string = "")
     .backward: none = lambda () = none
-    #format = "Value({.data})" (<Formatting function for `Value` instance.>)
+    #format = "Value({.data}, grad={.grad}, label={.label})"
 
     (< An instance method: the leading dot marks it as belonging to each
        instance. Inside its body, the receiver's members keep the same dot
        marker; `self` names the receiver only when it is passed as a
        value. >)
     .add(other: Value) -> Value:
-        => Value(.data + other.data, (self, other), "+", "add")
+        => Value(.data + other.data, 0.0, "+", "add")
 
     (< A class method: the leading `cls.` marks it as belonging to the
        class itself. Class members are reached through `cls.` the same
        way instance members are reached through the dot. >)
     cls.constant(value: real) -> Value:
-        => Value(value, (), "const", "constant")
+        => Value(value, 0.0, "const", "constant")
 
-weight: Value = Value(2.0, (), "input", "w")
-input: Value = Value(-4.0, (), "input", "x")
+weight: Value = Value(2.0, 0.0, "input", "w")
+input: Value = Value(-4.0, 0.0, "input", "x")
 product: Value = weight.mul(input)    (< instance member access >)
 unit: Value = Value.constant(1.0)     (< class member access >)
 ```
