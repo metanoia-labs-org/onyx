@@ -33,14 +33,14 @@ affected snippet and open-question status.
 - Bindings are mutable by default. Arrays (`arr`) are mutable in place.
 - Variables holding linear values evolve through consuming transformations.
   A consumed name is unavailable after the transformation.
+- `~` marks explicit ownership transfer (`b = ~a`). Ordinary reads, assignments,
+  projections, scalar reductions, and boolean tests never consume their operands.
 - `!p` means **persistent**, not immutable and not global. It prevents
   consumption by transformations, but does not prevent reassignment or in-place
   mutation.
 - `copy(expression)` creates an independent value explicitly.
-- A linear value cannot occur twice as a consuming operand in one expression:
-  `a + a` is a compilation error for linear `a`.
-- Reads, projections, scalar reductions, and boolean tests do not consume their
-  operands.
+- A linear value cannot occur twice as a transferred operand in one expression:
+  `~a + ~a` is a compilation error.
 - Indentation delimits lexical scopes. A child scope can access parent names;
   a parent cannot access child-only names.
 - `=> value` returns from the enclosing function. `:break` leaves only the

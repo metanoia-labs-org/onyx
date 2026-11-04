@@ -231,5 +231,32 @@ model and may be managed by the compiler. A value can outlive its declaring
 block only through an explicit mechanism such as a function return or a closure
 capture.
 
-**To decide:** shadowing, closure capture rules, and the exact lifetime and
-aliasing model for values that escape a block.
+## Redeclaration and dominance
+
+An annotated declaration always creates a new binding, even when the same name
+is already visible. The new binding dominates the previous binding for the rest
+of the current scope. When this happens in a child scope, the parent binding is
+visible again when the child scope closes.
+
+```onyx
+x: int = 1
+x: int = 2
+print(x) (< 2: the second binding dominates in this scope >)
+
+if true:
+    x: int = 3
+    print(x) (< 3: the child binding dominates here >)
+
+print(x) (< 2: the parent-scope binding is visible again >)
+```
+
+An assignment without an annotation targets the currently visible binding. If
+that binding was consumed, assignment makes it valid again; this is described
+in [Memory and ownership](memory-and-ownership.md).
+
+Dominating a binding that has never been read or transferred emits a warning,
+never an error. A binding that was read or transferred may be dominated without
+a warning.
+
+**To decide:** closure capture rules and the exact lifetime and aliasing model
+for values that escape a block.

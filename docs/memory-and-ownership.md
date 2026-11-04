@@ -1,8 +1,8 @@
 # Memory and ownership
 
-## Mutability, type stability, and consumption
+## Mutability, type stability, and ownership
 
-Onyx distinguishes a mutable binding, a mutable value, and a consumed value.
+Onyx distinguishes a mutable binding, a mutable value, and ownership transfer.
 These are related, but they are not the same concept.
 
 - **Bindings are mutable by default.** A name may be rebound to another value.
@@ -10,11 +10,11 @@ These are related, but they are not the same concept.
   rebound to an incompatible type.
 - **Arrays are mutable in place.** A compatible value may be assigned to an
   indexed array cell.
-- **Linear transformations consume their operand** according to the rules in
-  this document. Consumption makes a name unavailable; it does not make
-  bindings immutable in general.
-- **`!p` means persistent, not immutable.** It prevents consumption by a
-  transformation, while reassignment and in-place mutation remain permitted.
+- **Ownership transfer is explicit.** A name becomes invalid (consumed) only
+  when its value is transferred to a new owner with `~`.
+- **`!p` means persistent, not immutable.** It preserves a binding through a
+  requested transfer, while reassignment and in-place mutation remain
+  permitted.
 
 ```onyx
 count: int = 7
@@ -27,130 +27,120 @@ values[0] = 9                (< valid: in-place mutation >)
 persistent[0] = 9            (< valid: !p is not immutability >)
 ```
 
-## Consumption, persistence, and sharing
+## Reads and explicit transfer
 
-A variable in onyx is **linear** by default: when its value is used to
-produce a new value of the same kind, the variable is **consumed** — it
-becomes invalid, and the new value takes its place. This makes memory
-ownership explicit without requiring pointers or manual allocation.
-
-## What consumes a variable
-
-A variable is consumed only when it appears as a direct operand in a
-**transformation** — an operation that produces a new value of the same kind
-(an `arr` producing an `arr`, a class producing a class, and so on).
-
-The following operations **consume** their `arr` operand:
-
-- direct assignment: `b = a`
-- array-returning functions: `b = sort(a)`, `b = map(f, a)`
-- array arithmetic producing a new array: `b = a + c`
-
-The following operations **do not consume** their operand:
-
-- reads and projections: `print(a)`, `a[0]`, `a.length`, `a.shape`
-- scalar-producing reductions: `sum(a)`, `first(a)`, `product(a)`
-- scalar comparisons and boolean tests
-
-In every non-consuming case, the variable remains valid after the
-operation.
-
-## Repeated use in one consuming expression
-
-A linear variable cannot appear twice as a consuming operand in the same
-expression. Each such operand would require ownership of the same value, which
-would make the evolution ambiguous.
+Every ordinary use of a name is a read. Calculations, comparisons, function
+calls, `print`, indexing, projections, and ordinary assignment never transfer
+ownership. This rule applies to every type, including numeric scalars and
+strings.
 
 ```onyx
-a: arr[int] <3> = [1, 2, 3]
-b = a + a        (< compilation error: a is consumed twice >)
+a: int = 7
+b: int = a + 1
+print(a) (< valid: 7 >)
 ```
 
+The `~` prefix is the only transfer marker. It changes the owner of a value
+and invalidates the source name until that name is assigned again.
+
 ```onyx
-!p a: arr[int] <3> = [1, 2, 3]
-b = a + a        (< valid: a remains available >)
+a: int = 7
+b: int = ~a
+print(b) (< valid: 7 >)
+print(a) (< compilation error: a was transferred to b >)
 ```
 
-`copy(a)` is the general explicit solution. It preserves `a` for the first
-operand, while the second operand consumes it:
+Transfers may appear wherever a value is accepted, including on the right side
+of an assignment and in a function call:
 
 ```onyx
-b = copy(a) + a
+result = transform(~source)
 ```
 
-This requires a full copy followed by the array operation: both are `O(n)`, so
-the expression performs two array-sized passes and requires one array-sized
-temporary value. A specialized transformation can be more efficient:
+An ordinary assignment such as `b = a` is non-transferring: `a` remains valid.
+Its physical representation may use copying or sharing, but that choice never
+changes the visible ownership rules.
+
+## Reassignment after transfer
+
+A transferred name is invalid, not permanently removed. An assignment targets
+the visible binding and makes it valid again, provided the new value is
+compatible with its established type.
 
 ```onyx
-b = double(a)
-```
-
-`double` consumes `a` once and can evolve its storage in place, requiring one
-`O(n)` pass and `O(1)` additional storage. Such specialized operations are the
-preferred performance path when their semantics match the intended work.
-
-```onyx
-a: arr[int] <3> = [1, 2, 3]
-
-b = a              (< consumes a: a is no longer valid >)
-print(a)           (< error: a was consumed by the previous line >)
-```
-
-```onyx
-a: arr[int] <3> = [1, 2, 3]
-
-n: int = sum(a)    (< does not consume a >)
-m: int = a[0]      (< does not consume a >)
-print(a)           (< valid: a = [1, 2, 3] >)
+source: int = 7
+target: int = ~source
+source = 9
+print(source) (< valid: 9 >)
 ```
 
 ## Consumption across scopes
 
 A name declared in a child scope ceases to exist when that scope closes. A
-variable of an enclosing scope that is consumed inside a child scope stays
-consumed after the block, if any path through the block may consume it.
+variable of an enclosing scope that is transferred inside a child scope stays
+consumed (invalid) after the block, if any path through the block may transfer it.
 
 ```onyx
-a: arr[int] <3> = [1, 2, 3]
+a: int = 7
 
 if condition:
-    b = a        (< consumes a; b exists only inside this block >)
+    b: int = ~a  (< transfers a; b exists only inside this block >)
                  (< end of block: b ceases to exist >)
 
-print(a)         (< error: a may have been consumed by the block >)
+print(a)         (< compilation error: a may have been transferred by the block >)
 ```
 
 Validity is decided at compile time, from the text of the program alone. It
-never depends on the value of a condition.
+never depends on the runtime value of a condition.
+
+## Repeated transfer in one expression
+
+A linear variable cannot be transferred twice in the same expression. Each
+transfer requires exclusive ownership of the value.
+
+```onyx
+a: int = 7
+b = ~a + ~a      (< compilation error: a is transferred twice >)
+```
+
+When multiple uses of a value are needed, ordinary reads do not transfer:
+
+```onyx
+a: int = 7
+b = a + a        (< valid: reads do not transfer ownership >)
+```
+
+If one operand must be transferred while another is read, the read operand can
+be read normally, or an explicit `copy` can be made:
+
+```onyx
+b = a + ~a       (< valid: first operand is read, second is transferred >)
+```
 
 ## Persistent variables (`!p`)
 
 A variable declared with the `!p` prefix is **persistent**. Persistent
-variables are never consumed. When a transformation would consume a
-persistent variable, the language operates on a copy instead; the original
-variable remains valid and unchanged.
+variables cannot be consumed. When a transfer (`~`) is applied to a
+persistent variable, the variable remains valid and available.
 
 ```onyx
 !p a: arr[int] <3> = [1, 2, 3]
 
-b = a              (< a is not consumed; b shares a's value >)
-c = sort(a)        (< a is not consumed; c is a sorted copy >)
-
-print(a)           (< [1, 2, 3] >)
-print(c)           (< [1, 2, 3] >)
+b: arr[int] <3> = ~a   (< a is not consumed; a remains valid >)
+print(a)               (< [1, 2, 3] >)
+print(b)               (< [1, 2, 3] >)
 ```
 
-Persistent variables share their storage with every variable they are
-assigned to, until a mutation forces a copy. This sharing is invisible to
-the programmer: independent mutations always produce independent results.
+Persistent variables share their underlying storage until a mutation forces an
+independent copy (copy-on-write). This sharing is invisible to the programmer:
+mutations to one alias do not affect another.
 
 ```onyx
 !p a: arr[int] <3> = [1, 2, 3]
 
 b = a              (< b shares a's storage >)
 c = a              (< c shares a's storage >)
-d = a              (< d shares a's storage >)
+d: arr[int] <3> = ~a (< d receives a copy/share; a remains valid >)
 
 d[0] = 77          (< a copy is created for d; a, b, c unchanged >)
 
@@ -161,20 +151,18 @@ print(d)           (< [77, 2, 3] >)
 ```
 
 **Note.** `!p` does not affect mutability. A persistent variable can be
-reassigned and mutated exactly like a linear one. `!p` only controls whether
-the variable is consumed by transformations.
+reassigned and mutated in place exactly like a linear one. `!p` only prevents
+invalidation through transfer.
 
 ## Explicit copy
 
-For a linear variable that must survive one specific operation without being
-declared persistent for its entire lifetime, `copy(expression)` produces an
-independent value immediately.
+`copy(expression)` produces an independent value immediately:
 
 ```onyx
 a: arr[int] <3> = [1, 2, 3]
 
-b = copy(a)        (< a survives this line; b is independent >)
-c = a              (< consumes a here >)
+b = copy(a)        (< a remains valid; b is an independent copy >)
+c = ~a             (< transfers a here >)
 
 b[0] = 77          (< b is independent of c >)
 
@@ -182,41 +170,39 @@ print(b)           (< [77, 2, 3] >)
 print(c)           (< [1, 2, 3] >)
 ```
 
-`copy` is not required on a variable already declared `!p`, because the
-language already guarantees that the original survives. Applying `copy` to
-such a variable is permitted, but it forces an immediate physical copy
-instead of a shared representation.
-
 ## Relation to scope and lifetime
 
-Consumption affects **which names remain valid**, not the lifetime of the
-storage itself. When a value is consumed, its storage may be transferred to
-the consuming variable, or released when it is no longer referenced. The
+Transfer affects **which names remain valid**, not the lifetime of the
+storage itself. When a value is transferred, its storage may be moved to
+the receiving variable, or released when it is no longer referenced. The
 compiler chooses the cheapest strategy that preserves the visible semantics.
 
-Scope and lifetime are therefore distinct concerns:
+Scope, ownership, and lifetime are distinct concerns:
 
 - **Scope** determines name visibility (section *Blocks, scope, and lifetime*).
-- **Consumption** determines whether a name remains valid after a transformation.
-- **Lifetime** determines how long the underlying storage must remain alive.
+- **Ownership transfer** determines whether a name remains valid after an expression.
+- **Lifetime** determines how long the underlying storage must remain allocated.
 
 A value can outlive its declaring scope only through an explicit mechanism,
 such as a function return or a closure capture.
 
 ## Summary
 
-| Operation | Consumes the operand? |
-| --- | --- |
-| `b = a` | yes, unless `a` is `!p` |
-| `b = sort(a)`, `b = map(f, a)` | yes, unless `a` is `!p` |
-| `b = a + a` (array) | compilation error for a linear `a`; valid for `!p a` |
-| `print(a)`, `a[0]`, `a.length`, `a.shape` | no |
-| `sum(a)`, `first(a)`, `product(a)` | no |
-| `b = copy(a)` | no |
-| numeric scalars (`int`, `real`, `complex`, `quaternion`, `bool`) | never consumed; always copied |
-| `string` | never consumed; compared and concatenated by value |
+All data types — including numeric scalars (`int`, `real`, `complex`, `quaternion`),
+booleans, strings, arrays (`arr`), and class instances — follow the exact same
+ownership and transfer rules. Scalars are not an exception.
 
-**To decide:** the exact set of consuming operations, the behavior of a `while`
-whose body consumes a variable of an enclosing scope (where a second iteration
-would find it already consumed), and the interaction with closures and function
-returns.
+| Operation | Transfers ownership (consumes operand)? |
+| --- | --- |
+| `b = ~a`, `call(~a)` | yes: `a` becomes invalid (unless `!p`) |
+| `b = a` (ordinary assignment) | no: read; `a` remains valid |
+| `print(a)`, `a[0]`, `a.length`, `a.shape` | no: read; `a` remains valid |
+| arithmetic, reductions: `a + 1`, `sum(a)` | no: read; `a` remains valid |
+| `b = copy(a)` | no: produces an independent copy; `a` remains valid |
+| repeated transfer: `~a + ~a` | compilation error: `a` cannot be transferred twice |
+| reassignment: `a = value` | no: restores (resurrects) an invalid binding |
+| persistent variable: `~p` where `!p p` | no: `!p` bindings are immune to consumption |
+
+**To decide:** the behavior of a `while` whose body transfers a variable of an
+enclosing scope (where a second iteration would find it already transferred), and
+the interaction with closures and function returns.

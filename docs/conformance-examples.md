@@ -11,28 +11,70 @@ value = 2 + 0.5
 count: int = 7
 count = "seven"
 
-(< Linear consumption. Expected: compilation error because a is consumed twice. >)
-a: arr[int] <3> = [1, 2, 3]
-b = a + a
+(< 1. Scope: indentation delimits scopes.
+   Expected output: inner = 2, outer = 1. >)
+x: int = 1
+if true:
+    x: int = 2
+    print("inner = {x}")
+print("outer = {x}")
 
-(< Persistent variable. Expected: valid because a is persistent (!p). >)
-!p a: arr[int] <3> = [1, 2, 3]
-b = a + a
-
-(< Explicit copy. Expected: valid because copy(a) creates an independent value. >)
-a: arr[int] <3> = [1, 2, 3]
-b = copy(a) + a
-
-(< Non-consuming operations. Expected: valid, a remains available after reads and reductions. >)
-a: arr[int] <3> = [1, 2, 3]
-first: int = a[0]
-total: int = sum(a)
-size: int = a.length
+(< 2. Consumption across scopes: a parent is invalid after a block if any branch can transfer it.
+   Expected: compilation error at print(a): a may have been transferred. >)
+a: int = 7
+if condition:
+    b: int = ~a
 print(a)
 
-(< In-place array mutation. Expected: valid, values[0] is modified in place. >)
-numbers: arr[int] <3> = [1, 2, 3]
-numbers[0] = 9
+(< 3. Redeclaration: creates a new binding dominating the older one in current scope.
+   Expected output: 2. >)
+value: int = 1
+value: int = 2
+print(value)
+
+(< 4. Warning: unread and untransferred dominated binding emits a warning, never an error.
+   Expected warning: the first unused binding was never read or transferred. >)
+unused: int = 1
+unused: int = 2
+
+(< 5. Reads: calculations, comparisons, calls, print, and indexing never transfer ownership.
+   Expected output: 7, 8. >)
+source: int = 7
+next: int = source + 1
+print(source)
+print(next)
+
+(< 6. Consumption: a variable is consumed when its value changes owner.
+   Expected: compilation error at print(source): source was consumed by transfer to target. >)
+source: int = 7
+target: int = ~source
+print(target) (< 7 >)
+print(source)
+
+(< 7. Reassignment: an assignment targets an invalid/consumed binding and resurrects it.
+   Expected output: 9. >)
+source: int = 7
+target: int = ~source
+source = 9
+print(source)
+
+(< 8. Transfer symbol: ~ marks explicit transfer; ordinary assignment does not transfer.
+   Expected output: 7, 7. >)
+first: int = 7
+second: int = first (< read only: first remains valid >)
+print(first)
+print(second)
+
+(< Persistent variable (!p): ~ does not consume a persistent binding.
+   Expected output: 7, 7. >)
+!p persistent_val: int = 7
+transferred: int = ~persistent_val
+print(transferred) (< 7 >)
+print(persistent_val) (< 7 >)
+
+(< Repeated transfer: compilation error because source is transferred twice. >)
+source: int = 7
+target = ~source + ~source
 
 (< Function return. Expected: compilation error because not every path terminates with =>. >)
 invalid_fn(x: int) -> int:

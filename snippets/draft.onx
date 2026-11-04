@@ -10,7 +10,7 @@ n: int = 7
 
 print("There are {n} days in a week") (< The concept of string formatting will be explained later >)
 
-x: int = n (< n evolves into x and becomes unavailable >)
+x: int = ~n (< n transfers its value to x and becomes unavailable >)
 
 (< x is never used: warning >)
 
